@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: video-generation-service
+    env: node
+    buildCommand: npm install && apt-get update && apt-get install -y ffmpeg
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
