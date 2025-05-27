@@ -1,7 +1,7 @@
 {
-  "name": "video-generation-service",
+  "name": "script2vid-server",
   "version": "1.0.0",
-  "description": "Video generation service with FFmpeg",
+  "description": "Video generation server for Script2Vid",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,10 +12,11 @@
     "cors": "^2.8.5",
     "multer": "^1.4.5-lts.1",
     "axios": "^1.6.0",
-    "@supabase/supabase-js": "^2.39.0",
+    "@supabase/supabase-js": "^2.38.0",
     "fluent-ffmpeg": "^2.1.2"
   },
   "engines": {
-    "node": "18.x"
+    "node": ">=18.0.0"
   }
 }
+
