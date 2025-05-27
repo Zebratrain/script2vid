@@ -1,84 +1,89 @@
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer');
-const axios = require('axios');
-const { createClient } = require('@supabase/supabase-js');
-const ffmpeg = require('fluent-ffmpeg');
-const fs = require('fs').promises;
-const path = require('path');
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// CORS configuration - must be before routes
-app.use(cors({
-  origin: ['https://49341d2d-11cd-4a62-966f-010843c6c816.lovableproject.com', 'http://localhost:3000'],
-  credentials: true
-}));
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-// Other middleware
-app.use(express.json({ limit: '50mb' }));
-
-// Supabase client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-// Test endpoint to verify FFmpeg installation
-app.get('/test-ffmpeg', (req, res) => {
-  const { exec } = require('child_process');
-  exec('ffmpeg -version', (error, stdout, stderr) => {
-    if (error) {
-      res.status(500).json({ error: error.message });
-    } else {
-      res.json({ ffmpeg: stdout.split('\n')[0] });
-    }
-  });
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'Server is running', timestamp: new Date().toISOString() });
-});
-
-// Video generation endpoint
+// Your Render service endpoint
 app.post('/generate-video', async (req, res) => {
   try {
+    console.log('Received video generation request:', req.body);
+    
+    // 1. Extract data from request
     const { title, content, voiceId, autoGenerateImages, userId } = req.body;
     
-    console.log('Starting video generation for:', title);
-    console.log('Request body:', { title, voiceId, autoGenerateImages, contentLength: content?.length });
+    // 2. Your existing video processing logic here
+    // (FFmpeg, image generation, audio synthesis, etc.)
+    const processedVideoData = await processVideo({
+      title,
+      content,
+      voiceId,
+      autoGenerateImages
+    });
     
-    // Validate required fields
-    if (!title || !content || !voiceId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing required fields: title, content, and voiceId are required' 
-      });
+    // 3. Call Supabase Edge Function to save to database
+    const supabaseResponse = await fetch('https://wnczujabypadhtsankif.supabase.co/functions/v1/generate-video', {
+      method: 'POST',
+      headers: {
+        'Authorization': req.headers.authorization, // Pass through auth token
+        'Content-Type': 'application/json',
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InduY3p1amFieXBhZGh0c2Fua2lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyNzI4NTEsImV4cCI6MjA2Mzg0ODg1MX0.gQNqJkyk4ov5ocQVxCS4AblC4JRCz44-RVs_mDy4zH4'
+      },
+      body: JSON.stringify({
+        title,
+        userId,
+        mp4Url: processedVideoData.mp4Url,
+        audioUrl: processedVideoData.audioUrl,
+        subtitleUrl: processedVideoData.subtitleUrl,
+        thumbnailUrl: processedVideoData.thumbnailUrl,
+        duration: processedVideoData.duration,
+        status: 'completed',
+        metadata: processedVideoData.metadata
+      })
+    });
+    
+    if (!supabaseResponse.ok) {
+      throw new Error(`Supabase call failed: ${supabaseResponse.status}`);
     }
     
-    // Your video generation logic here
-    // (We'll implement this in the next step)
+    const supabaseResult = await supabaseResponse.json();
     
-    res.json({ 
-      success: true, 
-      message: 'Video generation started',
-      videoData: {
-        id: 'test-id',
-        title: title,
-        status: 'processing'
-      }
+    // 4. Return success response to frontend
+    res.json({
+      success: true,
+      videoData: supabaseResult.videoData
     });
+    
   } catch (error) {
-    console.error('Error in video generation:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Video generation error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
-// Start server
+// Your existing video processing function
+async function processVideo({ title, content, voiceId, autoGenerateImages }) {
+  // Your FFmpeg and processing logic here
+  // Return the processed video data with URLs
+  return {
+    mp4Url: 'https://your-storage/video.mp4',
+    audioUrl: 'https://your-storage/audio.mp3',
+    subtitleUrl: 'https://your-storage/subtitles.srt',
+    thumbnailUrl: 'https://your-storage/thumbnail.jpg',
+    duration: '2:30',
+    metadata: {
+      hasFFmpegProcessing: true,
+      imageCount: 5,
+      wordCount: content.split(' ').length
+    }
+  };
+}
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-  console.log(`FFmpeg test: http://localhost:${PORT}/test-ffmpeg`);
 });
